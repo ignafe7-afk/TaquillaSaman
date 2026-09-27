@@ -1,0 +1,14 @@
+TAQUILLA EL SAMAN - app independiente
+
+Contenido: index.html (la app), manifest.webmanifest y sw.js (para instalarla y que abra sin internet), iconos.
+
+Publicarla gratis con GitHub Pages:
+1. Crear cuenta en github.com.
+2. Nuevo repositorio público, por ejemplo "taquilla".
+3. "Add file" > "Upload files": subir TODOS estos archivos (no la carpeta, los archivos sueltos). Commit.
+4. Settings > Pages > Source: "Deploy from a branch", rama main, carpeta / (root). Guardar.
+5. En 1-2 minutos queda en https://TU-USUARIO.github.io/taquilla/
+
+En el teléfono: abrir ese link en Chrome > menú (3 puntos) > "Agregar a pantalla principal" / "Instalar app".
+
+Los registros se guardan en cada teléfono. No borrar los datos de Chrome sin antes mandar el cierre del día.
