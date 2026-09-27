@@ -432,7 +432,7 @@ details[open] summary{margin-bottom:10px}
     var d=dayObj(ui.day);
     $('pastBanner').hidden=ui.day===today();$('pastDay').textContent=longDay(ui.day);
     renderArqueo();
-    var hasDay=!isExample()&&!!(d&&d.registros.length);$('pdfBtn').disabled=!hasDay&&!(ui.day===today()&&state.dentro.length);$('xlsBtn').disabled=$('pdfBtn').disabled;
+    var hasDay=!isExample()&&!!(d&&d.registros.length);$('pdfBtn').disabled=!hasDay;$('xlsBtn').disabled=$('pdfBtn').disabled;
     if(ui.tab==='hist')renderHist();
     $('copyBtn').disabled=isExample()||!((d&&d.registros.length)||state.dentro.length);
   }
@@ -803,34 +803,59 @@ details[open] summary{margin-bottom:10px}
     });
     return rows;
   }
+  // Relación de ingresos del día: mismo formato que la hoja que llenan los parqueros
+  function relRows(s){
+    return s.list.map(function(r){
+      var isUsd=r.met==='efusd';
+      return {placa:(r.placa||'sin placa')+(r.tipo==='pernocta'?' (P)':''),carro:r.tipo==='moto'?'':1,moto:r.tipo==='moto'?1:'',
+        usd:isUsd?r.montoUsd:'',bs:isUsd?'':r.montoBs,forma:(r.met==='pm'?'PAGO MÓVIL':r.met==='tarjeta'?'TARJETA':'EFECTIVO'),
+        mon:isUsd?'$':'BS',ref:r.ref||'',grupo:r.grupo?s.gl[r.grupo]:'',dup:r.met==='pm'&&r.ref&&s.dups.indexOf(r.ref.replace(/\D/g,''))>-1};
+    });
+  }
   function exportXLSX(k){
-    var s=daySummary(k);if(!s.list.length&&!s.dentro.length){toast('No hay cobros ese día');return;}
+    var s=daySummary(k);if(!s.list.length){toast('No hay cobros ese día');return;}
     toast('Preparando Excel…');
     loadLib(LIBS.xlsx).then(function(){
-      var wb=XLSX.utils.book_new();
-      var R=[[title('El Samán Parking · Cierre de taquilla')],[cell('Fecha'),cell(longDay(k))],[cell('Tasa BCV'),cell(s.tasa||0,NF)],[cell('Registró'),cell(state.cfg.who||'')],[],
-        ['Método','Vehículos','Pagos','Monto Bs','Monto USD'].map(hdr)];
-      MET_ORDER.forEach(function(x,i){var q=s.m[x];R.push([cell(MET[x],null,false,i%2?XL:null),cell(q.n),cell(q.np),cell(r2(q.bs),NF),cell(x==='efusd'?r2(q.usd):'',NF)]);});
-      R.push([cell('Total equivalente',null,true),cell(s.list.length,null,true),cell(''),cell(s.tot,NF,true),cell(s.totUsd,NF,true)]);
-      R.push([]);R.push([title('Para el Excel (hoja Diario)')]);
-      R.push(['Carros','Motos','Pernoctas','Ingreso Carros Bs','Ingreso Motos Bs','Efectivo Bs','Efectivo USD'].map(hdr));
-      R.push([cell(s.c.carro),cell(s.c.moto),cell(s.c.pernocta),cell(s.ingC,NF),cell(s.ingM,NF),cell(r2(s.m.efbs.bs),NF),cell(r2(s.m.efusd.usd),NF)]);
-      if(s.arq){R.push([]);R.push([title('Arqueo de efectivo')]);R.push(['','Registrado','Contado','Diferencia'].map(hdr));
-        R.push([cell('Efectivo Bs'),cell(r2(s.m.efbs.bs),NF),cell(s.arq.bs,NF),cell(s.arqDif.bs,NF,true)]);
-        R.push([cell('Efectivo USD'),cell(r2(s.m.efusd.usd),NF),cell(s.arq.usd,NF),cell(s.arqDif.usd,NF,true)]);}
-      if(s.dups.length){R.push([]);R.push([cell('Referencias repetidas: '+s.dups.join(', '),null,true)]);}
-      XLSX.utils.book_append_sheet(wb,sheetFrom(R,[22,14,12,16,14,14,14]),'Resumen');
-      XLSX.utils.book_append_sheet(wb,sheetFrom(detalleRows(s,false),[5,9,9,12,10,13,13,13,12,13,14]),'Detalle');
-      if(s.grupos.length){var G=[['Pago','Método','Referencia','Vehículos','Placas','Monto Bs','Monto USD'].map(hdr)];
-        s.grupos.forEach(function(g){G.push([cell(g.label),cell(MET[g.met]),cell(g.ref||''),cell(g.n),cell(g.placas.join(', ')),cell(r2(g.bs),NF),cell(g.met==='efusd'?r2(g.usd):'',NF)]);});
-        XLSX.utils.book_append_sheet(wb,sheetFrom(G,[8,13,13,10,30,13,12]),'Pagos conjuntos');}
-      if(s.dentro.length){var D=[['Placa','Tipo','Fecha entrada','Hora entrada'].map(hdr)];
-        s.dentro.forEach(function(r){D.push([cell(r.placa||'sin placa'),cell(TIPO[r.tipo]),cell(dmy(r.fecha)),cell(r.entrada)]);});
-        XLSX.utils.book_append_sheet(wb,sheetFrom(D,[12,10,14,12]),'Quedaron dentro');}
-      XLSX.writeFile(wb,'Cierre_ElSaman_'+fileDate(k)+'.xlsx');
+      var G='DDEBD8',B={style:'thin',color:{rgb:'B7C9B0'}},BR={top:B,bottom:B,left:B,right:B};
+      function c(v,o){o=o||{};var x={v:v==null?'':v,t:typeof v==='number'?'n':'s',s:{font:{name:'Calibri',sz:10,bold:!!o.b,color:o.red?{rgb:'B3261E'}:undefined},alignment:{horizontal:o.al||'center',vertical:'center',wrapText:!!o.wrap},border:o.nb?{}:BR}};
+        if(o.fill)x.s.fill={fgColor:{rgb:o.fill}};if(o.z&&typeof v==='number'){x.z=o.z;x.s.numFmt=o.z;}if(o.f){x.f=o.f;x.t='n';}return x;}
+      var dia=longDay(k).split(' ')[0].toUpperCase();
+      var R=[];
+      R.push([c('EL SAMAN PARKING, C.A',{b:1,al:'left',nb:1}),'','','','','',c('FECHA:',{b:1,al:'right',nb:1}),c(dmy(k),{b:1})]);
+      R.push([c('RELACIÓN DE INGRESOS',{b:1,al:'left',nb:1}),'','','','','',c('DÍA:',{b:1,al:'right',nb:1}),c(dia,{b:1})]);
+      R.push(['','','','','','',c('TASA BCV:',{b:1,al:'right',nb:1}),c(s.tasa||0,{b:1,z:'#,##0.00'})]);
+      R.push([]);
+      var H=['PLACAS','CARROS','MOTOS','MONTO DEL PAGO $','MONTO DEL PAGO BS','FORMA DE PAGO','BS / $','REFERENCIAS'];
+      R.push(H.map(function(h){return c(h,{b:1,fill:G,wrap:1});}));
+      var first=R.length+1;
+      relRows(s).forEach(function(x){
+        R.push([c(x.placa),c(x.carro),c(x.moto),c(x.usd,{z:'#,##0.00'}),c(x.bs,{z:'#,##0.00'}),c(x.forma),c(x.mon),c(x.ref+(x.grupo?' ('+x.grupo+')':''),{red:x.dup,b:x.dup})]);
+      });
+      var last=R.length;
+      R.push([c('TOTALES',{b:1,fill:G}),c(s.c.carro+s.c.pernocta,{b:1,fill:G,f:'SUM(B'+first+':B'+last+')'}),c(s.c.moto,{b:1,fill:G,f:'SUM(C'+first+':C'+last+')'}),
+        c(r2(s.m.efusd.usd),{b:1,fill:G,z:'#,##0.00',f:'SUM(D'+first+':D'+last+')'}),c(r2(s.tot-s.m.efusd.bs),{b:1,fill:G,z:'#,##0.00',f:'SUM(E'+first+':E'+last+')'}),c('',{fill:G}),c('',{fill:G}),c('',{fill:G})]);
+      R.push([]);
+      R.push([c('FORMA DE PAGO',{b:1,fill:G}),c('CANT.',{b:1,fill:G}),'','',c('MONTO',{b:1,fill:G})]);
+      var rng=function(col){return col+first+':'+col+last;};
+      [['PAGO MÓVIL','pm'],['TARJETA','tarjeta'],['EFECTIVO BS','efbs'],['EFECTIVO $','efusd']].forEach(function(p){
+        var q=s.m[p[1]],isU=p[1]==='efusd';
+        R.push([c(p[0],{al:'left'}),c(q.n),'','',c(r2(isU?q.usd:q.bs),{z:isU?'"$ "#,##0.00':'"Bs "#,##0.00'})]);
+      });
+      R.push([c('TOTAL EN BS (equivalente)',{b:1,al:'left'}),c(s.list.length,{b:1}),'','',c(s.tot,{b:1,z:'"Bs "#,##0.00'})]);
+      if(s.tasa)R.push([c('TOTAL EN $ (tasa BCV)',{b:1,al:'left'}),'','','',c(s.totUsd,{b:1,z:'"$ "#,##0.00'})]);
+      if(s.arq)R.push([c('ARQUEO EFECTIVO',{b:1,al:'left'}),'','','',c('Bs '+nf.format(s.arqDif.bs)+' · $ '+nf.format(s.arqDif.usd),{b:1})]);
+      var ws=XLSX.utils.aoa_to_sheet(R);
+      ws['!cols']=[{wch:14},{wch:8},{wch:8},{wch:11},{wch:13},{wch:15},{wch:7},{wch:14}];
+      ws['!rows']=[];ws['!rows'][4]={hpt:30};
+      var n=R.length-1;ws['!merges']=[];
+      for(var i=last+2;i<=n;i++)ws['!merges'].push({s:{r:i,c:1},e:{r:i,c:3}});
+      ws['!print']={orientation:'portrait'};
+      var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Relación de ingresos');
+      XLSX.writeFile(wb,'Relacion_Ingresos_'+fileDate(k)+'.xlsx');
       toast('Excel descargado');
     },libFail);
   }
+
   function exportMonth(ym){
     var ks=Object.keys(state.dias).filter(function(k){return k.indexOf(ym)===0&&(state.dias[k].registros||[]).length;}).sort();
     if(!ks.length){toast('No hay cierres en ese mes');return;}
@@ -854,74 +879,62 @@ details[open] summary{margin-bottom:10px}
     },libFail);
   }
 
-  // ---------- PDF ----------
-  var PG=[46,94,52],PL=[95,166,78],PD=[24,34,26],PM=[86,99,79],PBG=[242,244,238];
+  // ---------- PDF: relación de ingresos del día, una o dos páginas ----------
+  var PG=[46,94,52],PD=[24,34,26],PM=[86,99,79],PBG=[242,246,239],PH=[221,235,216];
   function exportPDF(k){
-    var s=daySummary(k);if(!s.list.length&&!s.dentro.length){toast('No hay cobros ese día');return;}
+    var s=daySummary(k);if(!s.list.length){toast('No hay cobros ese día');return;}
     toast('Preparando PDF…');
     loadLib(LIBS.jspdf).then(function(){return loadLib(LIBS.autotable);}).then(function(){
-      var doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-      var W=297,H=210;var gen=dmy(today())+' '+nowHM();
-      var money=function(n){return 'Bs '+nf.format(n||0);},dol=function(n){return '$ '+nf.format(n||0);};
-      // ---- portada ----
-      doc.setFillColor.apply(doc,PG);doc.rect(0,0,W,H,'F');
-      doc.setFillColor.apply(doc,PL);doc.rect(0,H-6,W,6,'F');
-      doc.addImage('data:image/png;base64,'+LOGO_W,'PNG',W/2-40,18,80,55);
-      doc.setTextColor(255,255,255);doc.setFont('times','bold');doc.setFontSize(30);
-      doc.text('Cierre de Taquilla',W/2,92,{align:'center'});
-      var pill=longDay(k);pill=pill.charAt(0).toUpperCase()+pill.slice(1);
-      doc.setFont('helvetica','bold');doc.setFontSize(12);var pw=doc.getTextWidth(pill)+16;
-      doc.setFillColor(255,255,255);doc.roundedRect(W/2-pw/2,99,pw,10,5,5,'F');doc.setTextColor.apply(doc,PG);doc.text(pill,W/2,105.8,{align:'center'});
-      var cards=[['Vehículos cobrados',String(s.list.length),'Carros '+s.c.carro+' · Motos '+s.c.moto+' · Pernoctas '+s.c.pernocta],
-        ['Total equivalente',money(s.tot),s.totUsd!=null?('= '+dol(s.totUsd)+' a tasa BCV '+nf.format(s.tasa)):'Sin tasa BCV'],
-        ['Por cobrar (dentro)',String(s.dentro.length),s.dentro.length?'vehículos al momento del cierre':'no quedaron vehículos']];
-      var cw=78,gap=10,x0=(W-(cw*3+gap*2))/2;
-      cards.forEach(function(c,i){var x=x0+i*(cw+gap);doc.setFillColor(255,255,255);doc.roundedRect(x,122,cw,44,4,4,'F');
-        doc.setTextColor.apply(doc,PM);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(c[0].toUpperCase(),x+7,132);
-        doc.setTextColor.apply(doc,PG);doc.setFont('helvetica','bold');doc.setFontSize(c[1].length>12?17:24);doc.text(c[1],x+7,147);
-        doc.setTextColor.apply(doc,PM);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.text(c[2],x+7,158,{maxWidth:cw-12});});
-      doc.setTextColor(230,240,226);doc.setFontSize(9);doc.text('El Samán Parking, C.A. · Registró: '+(state.cfg.who||'sin nombre')+' · Generado '+gen,W/2,184,{align:'center'});
-
-      // ---- páginas interiores ----
-      function page(){doc.addPage();doc.setFillColor.apply(doc,PG);doc.rect(0,0,W,4,'F');
-        doc.addImage('data:image/png;base64,'+LOGO_G,'PNG',W-44,8,30,20.6);}
-      var y=0;
-      function section(n,t){if(y>H-40){page();y=34;}
-        doc.setFillColor.apply(doc,PG);doc.circle(19,y-1.6,4.2,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(String(n),19,y-0.2,{align:'center'});
-        doc.setTextColor.apply(doc,PD);doc.setFont('times','bold');doc.setFontSize(16);doc.text(t,27,y+0.6);y+=7;}
-      var tStyle={theme:'grid',styles:{font:'helvetica',fontSize:9,cellPadding:2.2,lineColor:[210,220,205],lineWidth:0.2,textColor:PD},
-        headStyles:{fillColor:PG,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:PBG},margin:{left:14,right:14}};
-      function table(o){doc.autoTable(Object.assign({},tStyle,o,{startY:y}));y=doc.lastAutoTable.finalY+10;}
-      page();y=34;
-      doc.setTextColor.apply(doc,PM);doc.setFont('helvetica','normal');doc.setFontSize(10);
-      doc.text('Cierre del '+dmy(k)+' · Tasa BCV '+(s.tasa?nf.format(s.tasa):'sin tasa')+' · Carro $'+state.cfg.tarifas.carro+' · Moto $'+state.cfg.tarifas.moto+' · Pernocta $'+state.cfg.tarifas.pernocta,14,20);
-      section(1,'Cobros por método de pago');
-      var body=MET_ORDER.map(function(x){var q=s.m[x];return [MET[x],q.n,q.np,money(q.bs),x==='efusd'?dol(q.usd):(s.tasa?dol(q.bs/s.tasa):'-')];});
-      table({head:[['Método','Vehículos','Pagos','Monto Bs','USD']],body:body,
-        foot:[['Total equivalente',s.list.length,'',money(s.tot),s.totUsd!=null?dol(s.totUsd):'-']],
-        footStyles:{fillColor:[232,241,228],textColor:PD,fontStyle:'bold'},
-        columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'}}});
-      section(2,'Para el Excel (hoja Diario)');
-      table({head:[['Carros','Motos','Pernoctas','Ingreso Carros Bs','Ingreso Motos Bs','Efectivo Bs','Efectivo USD']],
-        body:[[s.c.carro,s.c.moto,s.c.pernocta,money(s.ingC),money(s.ingM),money(s.m.efbs.bs),dol(s.m.efusd.usd)]],styles:Object.assign({},tStyle.styles,{halign:'center'})});
-      section(3,'Controles');
-      var ctl=[];
-      ctl.push(['Referencias repetidas',s.dups.length?s.dups.join(', '):'Ninguna']);
-      ctl.push(['Pagos de varios vehículos',s.grupos.length?s.grupos.map(function(g){return g.label+': '+MET[g.met]+(g.ref?' Ref '+g.ref:'')+' · '+g.n+' vehículos ('+g.placas.join(', ')+') · '+(g.met==='efusd'?dol(g.usd):money(g.bs));}).join('\n'):'Ninguno']);
-      ctl.push(['Arqueo de efectivo',s.arq?('Bs: registrado '+money(s.m.efbs.bs)+', contado '+money(s.arq.bs)+', diferencia '+money(s.arqDif.bs)+'\n$: registrado '+dol(s.m.efusd.usd)+', contado '+dol(s.arq.usd)+', diferencia '+dol(s.arqDif.usd)):'No se hizo arqueo']);
-      ctl.push(['Quedaron dentro sin cobrar',s.dentro.length?s.dentro.map(function(r){return (r.placa||'sin placa')+' ('+TIPO[r.tipo]+', entró '+dmy(r.fecha)+' '+r.entrada+')';}).join(', '):'Ninguno']);
-      table({body:ctl,columnStyles:{0:{fontStyle:'bold',cellWidth:62}}});
-      page();y=34;
-      section(4,'Detalle de cobros');
-      table({head:[['#','Entrada','Salida','Placa','Tipo','Método','Referencia','Monto','Conjunto','Registró']],
-        body:s.list.map(function(r,i){return [i+1,r.entrada||'',r.hora,r.placa||'sin placa',TIPO[r.tipo],MET[r.met],r.ref||'',r.met==='efusd'?dol(r.montoUsd):money(r.montoBs),r.grupo?s.gl[r.grupo]:'',r.por||''];}),
-        columnStyles:{0:{halign:'right',cellWidth:9},7:{halign:'right'}},
-        didParseCell:function(h){if(h.section==='body'&&h.column.index===6&&s.dups.indexOf(String(h.cell.raw).replace(/\D/g,''))>-1){h.cell.styles.textColor=[179,38,30];h.cell.styles.fontStyle='bold';}}});
-      // pie en cada página
+      var doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      var W=210,H=297,M=14;
+      var money=function(n){return nf.format(n||0);};
+      // encabezado
+      doc.setFillColor(14,47,4);doc.roundedRect(M,12,24,24,2,2,'F');
+      doc.addImage('data:image/png;base64,'+LOGO_W,'PNG',M+1.5,16.5,21,14.4);
+      doc.setTextColor.apply(doc,PD);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('EL SAMÁN PARKING, C.A.',M+29,20);
+      doc.setFontSize(11);doc.setTextColor.apply(doc,PG);doc.text('RELACIÓN DE INGRESOS',M+29,26.5);
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor.apply(doc,PM);doc.text('Registró: '+(state.cfg.who||'sin nombre'),M+29,32);
+      var dia=longDay(k).split(' ')[0].toUpperCase();
+      [['FECHA:',dmy(k)],['DÍA:',dia],['TASA BCV:',s.tasa?'Bs '+money(s.tasa):'sin tasa']].forEach(function(p,i){var yy=18+i*7;
+        doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor.apply(doc,PM);doc.text(p[0],W-M-38,yy,{align:'right'});
+        doc.setTextColor.apply(doc,PD);doc.text(p[1],W-M,yy,{align:'right'});doc.setDrawColor(200,210,195);doc.line(W-M-36,yy+1.5,W-M,yy+1.5);});
+      // resumen corto
+      var y=42;var bw=(W-2*M-9)/4;
+      [['CARROS',String(s.c.carro+s.c.pernocta)+(s.c.pernocta?'  ('+s.c.pernocta+' pern.)':'')],['MOTOS',String(s.c.moto)],['TOTAL BS',money(s.tot)],['TOTAL $ (BCV)',s.totUsd!=null?money(s.totUsd):'-']].forEach(function(b,i){
+        var x=M+i*(bw+3);doc.setFillColor.apply(doc,PBG);doc.roundedRect(x,y,bw,17,2,2,'F');
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor.apply(doc,PM);doc.text(b[0],x+4,y+6);
+        doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor.apply(doc,PG);doc.text(b[1],x+4,y+13.5);});
+      y+=21;
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor.apply(doc,PD);
+      var line='Pago Móvil: '+s.m.pm.n+' · Bs '+money(s.m.pm.bs)+'     Tarjeta: '+s.m.tarjeta.n+' · Bs '+money(s.m.tarjeta.bs)+'     Efectivo Bs: '+s.m.efbs.n+' · Bs '+money(s.m.efbs.bs)+'     Efectivo $: '+s.m.efusd.n+' · $ '+money(s.m.efusd.usd);
+      doc.text(line,M,y+2);y+=6;
+      // tabla principal
+      var rows=relRows(s);
+      doc.autoTable({startY:y,theme:'grid',margin:{left:M,right:M,bottom:16},
+        head:[['#','PLACA','CARRO','MOTO','MONTO $','MONTO BS','FORMA DE PAGO','REFERENCIA']],
+        body:rows.map(function(x,i){return [i+1,x.placa,x.carro,x.moto,x.usd===''?'':money(x.usd),x.bs===''?'':money(x.bs),x.forma,x.ref+(x.grupo?' ('+x.grupo+')':'')];}),
+        foot:[['','TOTALES',String(s.c.carro+s.c.pernocta),String(s.c.moto),s.m.efusd.usd?money(s.m.efusd.usd):'',money(r2(s.tot-s.m.efusd.bs)),'','']],
+        showFoot:'lastPage',showHead:'everyPage',styles:{font:'helvetica',fontSize:8,cellPadding:1.05,halign:'center',lineColor:[205,215,200],lineWidth:0.15,textColor:PD},
+        headStyles:{fillColor:PH,textColor:PD,fontStyle:'bold',fontSize:7.5},footStyles:{fillColor:PH,textColor:PD,fontStyle:'bold'},
+        alternateRowStyles:{fillColor:[250,251,249]},
+        columnStyles:{0:{cellWidth:9,textColor:PM},1:{fontStyle:'bold'},4:{halign:'right'},5:{halign:'right'}},
+        didParseCell:function(h){if(h.section==='body'&&h.column.index===7&&rows[h.row.index]&&rows[h.row.index].dup){h.cell.styles.textColor=[179,38,30];h.cell.styles.fontStyle='bold';}}});
+      y=doc.lastAutoTable.finalY+6;
+      // notas cortas (solo si hay algo que avisar)
+      var notas=[];
+      if(s.dups.length)notas.push('Referencias repetidas (en rojo): '+s.dups.join(', ')+'. Revisar contra el banco.');
+      if(s.grupos.length)notas.push('Pagos de varios vehículos: '+s.grupos.map(function(g){return g.label+' = '+g.n+' vehículos, '+(g.met==='efusd'?'$ '+money(g.usd):'Bs '+money(g.bs));}).join('; ')+'.');
+      if(s.dentro.length)notas.push('Quedaron dentro sin cobrar: '+s.dentro.map(function(r){return r.placa||'sin placa';}).join(', ')+'.');
+      if(s.arq)notas.push('Arqueo de efectivo: Bs '+money(s.arqDif.bs)+' · $ '+money(s.arqDif.usd)+(Math.abs(s.arqDif.bs)<0.005&&Math.abs(s.arqDif.usd)<0.005?' (cuadra).':' (diferencia entre lo contado y lo registrado).'));
+      if(s.c.pernocta)notas.push('(P) = pernocta.');
+      if(notas.length){if(y>H-30){doc.addPage();y=20;}
+        doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor.apply(doc,PG);doc.text('NOTAS',M,y);y+=4.5;
+        doc.setFont('helvetica','normal');doc.setTextColor.apply(doc,PD);
+        notas.forEach(function(t){var ls=doc.splitTextToSize('• '+t,W-2*M);if(y+ls.length*4>H-16){doc.addPage();y=20;}doc.text(ls,M,y);y+=ls.length*4+1;});}
       var n=doc.getNumberOfPages();
-      for(var i=2;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor.apply(doc,PM);doc.setFont('helvetica','normal');
-        doc.text('El Samán Parking, C.A. · Cierre de taquilla '+dmy(k)+' · Generado '+gen,14,H-8);doc.text('Pág. '+(i-1)+' de '+(n-1),W-14,H-8,{align:'right'});}
-      doc.save('Cierre_ElSaman_'+fileDate(k)+'.pdf');
+      for(var i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7.5);doc.setTextColor.apply(doc,PM);doc.setFont('helvetica','normal');
+        doc.text('El Samán Parking, C.A. · Relación de ingresos '+dmy(k),M,H-8);doc.text('Pág. '+i+' de '+n,W-M,H-8,{align:'right'});}
+      doc.save('Relacion_Ingresos_'+fileDate(k)+'.pdf');
       toast('PDF descargado');
     }).catch(libFail);
   }

@@ -1,4 +1,4 @@
-TAQUILLA EL SAMAN - version 2 (PDF, Excel, Historial, Arqueo y Respaldo)
+TAQUILLA EL SAMAN - version 3 (Relacion de ingresos en PDF y Excel, Historial, Arqueo y Respaldo)
 
 ACTUALIZAR en GitHub (repositorio TaquillaSaman):
 1. Descomprimir este zip en la computadora.
