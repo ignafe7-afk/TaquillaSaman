@@ -1,14 +1,13 @@
-TAQUILLA EL SAMAN - app independiente
+TAQUILLA EL SAMAN - version 2 (PDF, Excel, Historial, Arqueo y Respaldo)
 
-Contenido: index.html (la app), manifest.webmanifest y sw.js (para instalarla y que abra sin internet), iconos.
+ACTUALIZAR en GitHub (repositorio TaquillaSaman):
+1. Descomprimir este zip en la computadora.
+2. En el repositorio: Add file > Upload files.
+3. Arrastrar TODOS los archivos sueltos (no la carpeta). Los que ya existen se reemplazan solos.
+4. Commit changes. En 1-2 minutos se actualiza el link.
+5. En el telefono: abrir la app con internet; si se ve la version vieja, cerrarla y abrirla otra vez.
 
-Publicarla gratis con GitHub Pages:
-1. Crear cuenta en github.com.
-2. Nuevo repositorio público, por ejemplo "taquilla".
-3. "Add file" > "Upload files": subir TODOS estos archivos (no la carpeta, los archivos sueltos). Commit.
-4. Settings > Pages > Source: "Deploy from a branch", rama main, carpeta / (root). Guardar.
-5. En 1-2 minutos queda en https://TU-USUARIO.github.io/taquilla/
+Los archivos deben quedar en la raiz del repositorio (sin carpetas):
+index.html, sw.js, manifest.webmanifest, lib-xlsx.js, lib-jspdf.js, lib-autotable.js, icon-180.png, icon-192.png, icon-512.png, LEEME.txt
 
-En el teléfono: abrir ese link en Chrome > menú (3 puntos) > "Agregar a pantalla principal" / "Instalar app".
-
-Los registros se guardan en cada teléfono. No borrar los datos de Chrome sin antes mandar el cierre del día.
+Los registros se guardan en cada telefono. Descargar un respaldo cada semana (Unir y ajustar > Respaldo).
