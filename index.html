@@ -165,7 +165,7 @@ details[open] summary{margin-bottom:10px}
     <div class="rate">
       <div>
         <label class="lbl" for="tasa">Bs por dólar</label>
-        <input type="number" id="tasa" inputmode="decimal" step="0.01" min="0" placeholder="Ej. 849,00" class="num">
+        <input type="text" id="tasa" inputmode="decimal" autocomplete="off" placeholder="Ej. 849,00" class="num">
       </div>
       <button id="saveTasa" type="button">Guardar tasa</button>
     </div>
@@ -233,7 +233,7 @@ details[open] summary{margin-bottom:10px}
       </div>
       <div>
         <label class="lbl" for="monto" id="montoLbl">Monto Bs</label>
-        <input type="number" id="monto" inputmode="decimal" step="0.01" min="0" class="amount num">
+        <input type="text" id="monto" inputmode="decimal" autocomplete="off" class="amount num">
       </div>
     </div>
     <div id="cobroNote" class="note" hidden></div>
@@ -272,8 +272,8 @@ details[open] summary{margin-bottom:10px}
       <div>
         <span class="lbl">Arqueo de efectivo (lo que hay en caja)</span>
         <div class="row2">
-          <div><label class="lbl" for="arqBs" style="text-transform:none;letter-spacing:0">Contado Bs</label><input type="number" id="arqBs" inputmode="decimal" step="0.01" min="0" class="num"></div>
-          <div><label class="lbl" for="arqUsd" style="text-transform:none;letter-spacing:0">Contado $</label><input type="number" id="arqUsd" inputmode="decimal" step="1" min="0" class="num"></div>
+          <div><label class="lbl" for="arqBs" style="text-transform:none;letter-spacing:0">Contado Bs</label><input type="text" id="arqBs" inputmode="decimal" autocomplete="off" class="num"></div>
+          <div><label class="lbl" for="arqUsd" style="text-transform:none;letter-spacing:0">Contado $</label><input type="text" id="arqUsd" inputmode="decimal" autocomplete="off" class="num"></div>
         </div>
         <p class="hint num" id="arqOut"></p>
         <button type="button" id="arqSave" style="width:100%">Guardar arqueo</button>
@@ -323,9 +323,9 @@ details[open] summary{margin-bottom:10px}
           <input type="text" id="who" placeholder="Ej. Luis">
         </div>
         <div class="stats">
-          <div><label class="lbl" for="tc">Carro $</label><input type="number" id="tc" step="0.5" min="0" class="num"></div>
-          <div><label class="lbl" for="tm">Moto $</label><input type="number" id="tm" step="0.5" min="0" class="num"></div>
-          <div><label class="lbl" for="tp">Pernocta $</label><input type="number" id="tp" step="0.5" min="0" class="num"></div>
+          <div><label class="lbl" for="tc">Carro $</label><input type="text" id="tc" inputmode="decimal" autocomplete="off" class="num"></div>
+          <div><label class="lbl" for="tm">Moto $</label><input type="text" id="tm" inputmode="decimal" autocomplete="off" class="num"></div>
+          <div><label class="lbl" for="tp">Pernocta $</label><input type="text" id="tp" inputmode="decimal" autocomplete="off" class="num"></div>
         </div>
         <p class="hint" style="margin:0">Tarifas en dólares a tasa BCV. Cambiarlas no modifica los cobros ya hechos.</p>
         <button type="button" id="saveCfg">Guardar ajustes</button>
@@ -374,7 +374,14 @@ details[open] summary{margin-bottom:10px}
   var nf=new Intl.NumberFormat('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
   function bs(n){return 'Bs '+nf.format(n||0);}
   function usd(n){return '$ '+nf.format(n||0);}
-  function parseNum(s){s=String(s||'').trim();if(!s)return NaN;if(s.indexOf(',')>-1){s=s.replace(/\./g,'').replace(',','.');}return parseFloat(s);}
+  // acepta coma o punto como decimal (teclado de iPhone en español usa coma)
+  function parseNum(s){s=String(s||'').trim().replace(/\s/g,'');if(!s)return NaN;
+    if(s.indexOf(',')>-1){s=s.replace(/\./g,'').replace(',','.');}
+    else if((s.match(/\./g)||[]).length>1){s=s.replace(/\./g,'');}
+    return parseFloat(s);}
+  function fmtIn(n){var x=Math.round(n*100)/100;return (x%1===0?String(x):x.toFixed(2)).replace('.',',');}
+  document.addEventListener('input',function(e){var t=e.target;if(!t||t.getAttribute('inputmode')!=='decimal')return;
+    var v=t.value.replace(/[^0-9.,]/g,'');if(v!==t.value)t.value=v;},true);
   function r2(n){return Math.round(n*100)/100;}
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
   function dayObj(k,create){if(!state.dias[k]&&create)state.dias[k]={tasa:null,registros:[]};return state.dias[k];}
@@ -414,7 +421,7 @@ details[open] summary{margin-bottom:10px}
     $('hdrWho').textContent=state.cfg.who||'sin nombre';
     $('dayPick').value=ui.day;
     var t=tasaDia();
-    if(document.activeElement!==$('tasa'))$('tasa').value=t?t:'';
+    if(document.activeElement!==$('tasa'))$('tasa').value=t?fmtIn(t):'';
     var tn=$('tasaNote');
     if(!t){
       var prev=lastTasaBefore(ui.day);tn.hidden=false;
@@ -486,8 +493,8 @@ details[open] summary{margin-bottom:10px}
     var t=tasaHoy();
     var usdTotal=cobroUsdParts().reduce(function(a,p){return a+p.usd;},0);
     if(!c.montoTouched){
-      if(c.met==='efusd')$('monto').value=usdTotal;
-      else $('monto').value=t?r2(usdTotal*t).toFixed(2):'';
+      if(c.met==='efusd')$('monto').value=fmtIn(usdTotal);
+      else $('monto').value=t?fmtIn(r2(usdTotal*t)):'';
     }
     var m=parseNum($('monto').value);
     var n=1+c.extra.length;
@@ -756,8 +763,8 @@ details[open] summary{margin-bottom:10px}
   // ================== ARQUEO DE EFECTIVO ==================
   function renderArqueo(){
     var d=dayObj(ui.day);var a=(d&&d.arqueo)||{};
-    if(document.activeElement!==$('arqBs'))$('arqBs').value=a.bs!=null?a.bs:'';
-    if(document.activeElement!==$('arqUsd'))$('arqUsd').value=a.usd!=null?a.usd:'';
+    if(document.activeElement!==$('arqBs'))$('arqBs').value=a.bs!=null?fmtIn(a.bs):'';
+    if(document.activeElement!==$('arqUsd'))$('arqUsd').value=a.usd!=null?fmtIn(a.usd):'';
     var s=daySummary(ui.day);var out=$('arqOut');
     if(!d||!d.arqueo){out.innerHTML='Registrado: <b>'+bs(s.m.efbs.bs)+'</b> y <b>'+usd(s.m.efusd.usd)+'</b> en efectivo.';return;}
     function dif(v,f){if(Math.abs(v)<0.005)return '<span class="ok">cuadra</span>';return '<span class="'+(v<0?'flag':'warn')+'">'+(v<0?'falta ':'sobra ')+f(Math.abs(v))+'</span>';}
@@ -995,7 +1002,7 @@ details[open] summary{margin-bottom:10px}
   });
 
   $('who').value=state.cfg.who||'';
-  $('tc').value=state.cfg.tarifas.carro;$('tm').value=state.cfg.tarifas.moto;$('tp').value=state.cfg.tarifas.pernocta;
+  $('tc').value=fmtIn(state.cfg.tarifas.carro);$('tm').value=fmtIn(state.cfg.tarifas.moto);$('tp').value=fmtIn(state.cfg.tarifas.pernocta);
   render();
 })();
 </script>
