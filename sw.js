@@ -1,5 +1,5 @@
 // Guarda la app en el teléfono para que abra aunque falle el internet.
-var CACHE='taquilla-v4';
+var CACHE='taquilla-v5';
 var APP=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','icon-180.png','lib-xlsx.js','lib-jspdf.js','lib-autotable.js'];
 self.addEventListener('install',function(e){e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(APP);}));self.skipWaiting();});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));}));self.clients.claim();});
